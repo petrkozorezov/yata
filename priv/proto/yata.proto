@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package yata.api;
+
+service UserService {
+  rpc create_order(CreateOrderRequest) returns (CreateOrderResponse) {};
+  rpc add_dish(AddDishRequest) returns (GeneralResponse) {};
+  rpc remove_dish(RemoveDishRequest) returns (GeneralResponse) {};
+  rpc place_order(PlaceOrderRequest) returns (GeneralResponse) {};
+}
+
+enum Status {
+  Ok             = 0;
+  BadOrderID     = 1;
+  BadOrderStatus = 2;
+}
+
+message GeneralResponse {
+  Status status = 1;
+}
+
+message CreateOrderRequest {
+}
+
+message CreateOrderResponse {
+  string order_id = 1;
+}
+
+message AddDishRequest {
+  string order_id = 1;
+  string dish_id  = 2;
+}
+
+message RemoveDishRequest {
+  string order_id = 1;
+  string dish_id  = 2;
+}
+
+message PlaceOrderRequest {
+  string order_id = 1;
+}
+
+
+
+service PaymentCallbacks {
+  rpc payment_result(PaymentResultRequest) returns (PaymentResultResponse) {};
+}
+
+enum PaymentStatus {
+  Succeed = 0;
+  Failed  = 1;
+}
+message PaymentResultRequest {
+  string        payment_id = 1;
+  PaymentStatus status     = 2;
+  string        details    = 3;
+}
+
+message PaymentResultResponse {}
