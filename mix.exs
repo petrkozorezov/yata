@@ -25,7 +25,8 @@ defmodule Yata.MixProject do
       {:erl_snowflake, "~> 1.1"},
       {:ecto_sql, "~> 3.10"},
       {:ecto_sqlite3, "~> 0.10.0"},
-      {:jason, "~> 1.4"}
+      {:jason, "~> 1.4"},
+      {:stream_data, "~> 0.6", only: :test}
     ]
   end
 end
