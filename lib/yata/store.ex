@@ -90,27 +90,34 @@ defmodule Yata.Store do
   end
 
   defp replace_dishes(order_id, dishes) do
-    Repo.delete_all(from(d in OrderDishRecord, where: d.order_id == ^order_id))
+    with :ok <- validate_dishes(dishes) do
+      Repo.delete_all(from(d in OrderDishRecord, where: d.order_id == ^order_id))
 
-    entries =
-      dishes
-      |> Enum.with_index()
-      |> Enum.map(fn {dish_id, index} ->
-        %{
-          order_id: order_id,
-          dish_id: dish_id,
-          position: index,
-          inserted_at: utc_now()
-        }
-      end)
+      entries =
+        dishes
+        |> Enum.with_index()
+        |> Enum.map(fn {dish_id, index} ->
+          %{
+            order_id: order_id,
+            dish_id: dish_id,
+            position: index,
+            inserted_at: utc_now()
+          }
+        end)
 
-    case entries do
-      [] ->
-        :ok
+      case entries do
+        [] ->
+          :ok
 
-      entries ->
-        {count, _} = Repo.insert_all(OrderDishRecord, entries)
-        if count == length(entries), do: :ok, else: {:error, :dish_persist_failed}
+        entries ->
+          try do
+            {count, _} = Repo.insert_all(OrderDishRecord, entries)
+            if count == length(entries), do: :ok, else: {:error, :dish_persist_failed}
+          rescue
+            error ->
+              {:error, {:persist_failed, error}}
+          end
+      end
     end
   end
 
@@ -152,6 +159,27 @@ defmodule Yata.Store do
       status: payment.status,
       details: payment.details
     }
+  end
+
+  defp validate_dishes(dishes) do
+    case Enum.find(dishes, &(not is_binary(&1))) do
+      nil ->
+        case find_duplicate_dishes(dishes) do
+          [] -> :ok
+          duplicates -> {:error, {:duplicate_dishes, duplicates}}
+        end
+
+      invalid ->
+        {:error, {:invalid_dish_id, invalid}}
+    end
+  end
+
+  defp find_duplicate_dishes(dishes) do
+    dishes
+    |> Enum.group_by(& &1)
+    |> Enum.filter(fn {_dish_id, occurrences} -> length(occurrences) > 1 end)
+    |> Enum.map(fn {dish_id, _} -> dish_id end)
+    |> Enum.sort()
   end
 
   defp utc_now do

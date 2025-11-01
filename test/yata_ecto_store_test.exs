@@ -3,7 +3,7 @@ defmodule YataEctoStoreTest do
 
   import Ecto.Query
 
-  alias Yata.{Repo, Order, Store}
+  alias Yata.{Repo, Order, PaymentRequest, Store}
   alias Yata.Orders.CommandHandler, as: OrderHandler
   alias Yata.Payments.CommandHandler, as: PaymentHandler
   alias Yata.Store.{OrderDishRecord, OrderRecord, PaymentRecord}
@@ -65,6 +65,54 @@ defmodule YataEctoStoreTest do
 
     assert completed_order.payment_request_id == payment_record.id
     assert pending_order.payment_request_id == payment_record.id
+  end
+
+  describe "store validations" do
+    test "fetch_order/1 rejects non-binary id" do
+      assert {:error, {:invalid_argument, :order_id}} = Store.fetch_order(123)
+    end
+
+    test "fetch_payment/1 rejects non-binary id" do
+      assert {:error, {:invalid_argument, :payment_id}} = Store.fetch_payment(:atom)
+    end
+
+    test "save_order/1 returns validation error for invalid order data" do
+      order = %Order{id: "invalid-order", status: nil, dishes: [], payment_request_id: nil}
+
+      assert {:error, {:validation_failed, changeset}} = Store.save_order(order)
+      assert Keyword.has_key?(changeset.errors, :status)
+    end
+
+    test "save_order/1 rejects non-struct arguments" do
+      assert {:error, {:invalid_argument, :order}} = Store.save_order(%{})
+    end
+
+    test "save_order/1 rejects duplicate dish ids" do
+      order = %Order{id: "dup-order", status: :draft, dishes: ["dish", "dish"], payment_request_id: nil}
+
+      assert {:error, {:duplicate_dishes, ["dish"]}} = Store.save_order(order)
+      assert Repo.get(OrderRecord, order.id) == nil
+    end
+
+    test "save_order/1 rejects non-binary dish ids" do
+      order = %Order{id: "bad-dish-order", status: :draft, dishes: ["ok", 123], payment_request_id: nil}
+
+      assert {:error, {:invalid_dish_id, 123}} = Store.save_order(order)
+    end
+
+    test "save_payment/1 returns validation error for invalid payload" do
+      order = %Order{id: "for-payment", status: :draft, dishes: [], payment_request_id: nil}
+      assert :ok = Store.save_order(order)
+
+      payment = %PaymentRequest{id: "payment-invalid", order_id: order.id, status: nil, details: nil}
+
+      assert {:error, {:validation_failed, changeset}} = Store.save_payment(payment)
+      assert Keyword.has_key?(changeset.errors, :status)
+    end
+
+    test "save_payment/1 rejects non-struct arguments" do
+      assert {:error, {:invalid_argument, :payment_request}} = Store.save_payment(%{})
+    end
   end
 
   defp cleanup_db do

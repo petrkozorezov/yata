@@ -17,6 +17,28 @@ defmodule Yata.Api.PaymentStatus do
   field(:Failed, 1)
 end
 
+defmodule Yata.Api.OrderStatus do
+  @moduledoc false
+
+  use Protobuf, enum: true, protoc_gen_elixir_version: "0.14.1", syntax: :proto3
+
+  field(:Draft, 0)
+  field(:Placed, 1)
+  field(:PaymentPending, 2)
+  field(:Completed, 3)
+  field(:Cancelled, 4)
+end
+
+defmodule Yata.Api.PaymentReadStatus do
+  @moduledoc false
+
+  use Protobuf, enum: true, protoc_gen_elixir_version: "0.14.1", syntax: :proto3
+
+  field(:Pending, 0)
+  field(:Succeeded, 1)
+  field(:Failed, 2)
+end
+
 defmodule Yata.Api.GeneralResponse do
   @moduledoc false
 
@@ -65,6 +87,35 @@ defmodule Yata.Api.PlaceOrderRequest do
   field(:order_id, 1, type: :string, json_name: "orderId")
 end
 
+defmodule Yata.Api.GetOrderStatusRequest do
+  @moduledoc false
+
+  use Protobuf, protoc_gen_elixir_version: "0.14.1", syntax: :proto3
+
+  field(:order_id, 1, type: :string, json_name: "orderId")
+end
+
+defmodule Yata.Api.PaymentInfo do
+  @moduledoc false
+
+  use Protobuf, protoc_gen_elixir_version: "0.14.1", syntax: :proto3
+
+  field(:payment_id, 1, type: :string, json_name: "paymentId")
+  field(:status, 2, type: Yata.Api.PaymentReadStatus, enum: true)
+  field(:details, 3, type: :string)
+end
+
+defmodule Yata.Api.GetOrderStatusResponse do
+  @moduledoc false
+
+  use Protobuf, protoc_gen_elixir_version: "0.14.1", syntax: :proto3
+
+  field(:order_id, 1, type: :string, json_name: "orderId")
+  field(:status, 2, type: Yata.Api.OrderStatus, enum: true)
+  field(:dishes, 3, repeated: true, type: :string)
+  field(:payment, 4, type: Yata.Api.PaymentInfo)
+end
+
 defmodule Yata.Api.PaymentResultRequest do
   @moduledoc false
 
@@ -93,6 +144,8 @@ defmodule Yata.Api.UserService.Service do
   rpc(:remove_dish, Yata.Api.RemoveDishRequest, Yata.Api.GeneralResponse)
 
   rpc(:place_order, Yata.Api.PlaceOrderRequest, Yata.Api.GeneralResponse)
+
+  rpc(:get_order_status, Yata.Api.GetOrderStatusRequest, Yata.Api.GetOrderStatusResponse)
 end
 
 defmodule Yata.Api.UserService.Stub do

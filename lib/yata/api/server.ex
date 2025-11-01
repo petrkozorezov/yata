@@ -11,10 +11,14 @@ defmodule Yata.Api.Server do
     CreateOrderResponse,
     GeneralResponse,
     PlaceOrderRequest,
-    RemoveDishRequest
+    RemoveDishRequest,
+    GetOrderStatusRequest,
+    GetOrderStatusResponse,
+    PaymentInfo
   }
 
   alias Yata.Orders.CommandHandler, as: OrderHandler
+  alias Yata.ReadModel
 
   def create_order(%CreateOrderRequest{}, _stream) do
     case OrderHandler.create_order() do
@@ -54,6 +58,22 @@ defmodule Yata.Api.Server do
     end
   end
 
+  def get_order_status(%GetOrderStatusRequest{order_id: order_id}, _stream) do
+    case ReadModel.get_order_snapshot(order_id) do
+      {:ok, snapshot} ->
+        to_get_order_response(snapshot)
+
+      {:error, {:invalid_argument, :order_id}} ->
+        raise rpc_error(:invalid_argument, "invalid_order_id")
+
+      {:error, :not_found} ->
+        raise rpc_error(:not_found, "order_not_found")
+
+      {:error, reason} ->
+        raise rpc_error(:internal, "get_order_status_failed: #{inspect(reason)}")
+    end
+  end
+
   defp to_general_response({:ok, _order, _events}), do: ok_response()
   defp to_general_response({:error, :not_found}), do: response(:BadOrderID)
 
@@ -77,6 +97,44 @@ defmodule Yata.Api.Server do
 
   defp rpc_error(status, message) do
     GRPC.RPCError.exception(status: status, message: message)
+  end
+
+  defp to_get_order_response(%ReadModel.OrderSnapshot{order: order, payment: payment}) do
+    %GetOrderStatusResponse{
+      order_id: order.id,
+      status: to_order_status_enum(order.status),
+      dishes: order.dishes,
+      payment: payment && to_payment_info(payment)
+    }
+  end
+
+  defp to_order_status_enum(:draft), do: :Draft
+  defp to_order_status_enum(:placed), do: :Placed
+  defp to_order_status_enum(:payment_pending), do: :PaymentPending
+  defp to_order_status_enum(:completed), do: :Completed
+  defp to_order_status_enum(:cancelled), do: :Cancelled
+
+  defp to_payment_info(%Yata.PaymentRequest{} = payment) do
+    %PaymentInfo{
+      payment_id: payment.id,
+      status: to_payment_status_enum(payment.status),
+      details: encode_details(payment.details)
+    }
+  end
+
+  defp to_payment_status_enum(:pending), do: :Pending
+  defp to_payment_status_enum(:succeeded), do: :Succeeded
+  defp to_payment_status_enum(:failed), do: :Failed
+
+  defp encode_details(nil), do: ""
+
+  defp encode_details(details) when is_binary(details), do: details
+
+  defp encode_details(details) do
+    details
+    |> Jason.encode!()
+  rescue
+    _ -> inspect(details)
   end
 end
 

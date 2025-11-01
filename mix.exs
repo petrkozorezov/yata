@@ -24,7 +24,8 @@ defmodule Yata.MixProject do
       {:protobuf, "~> 0.14.1"},
       {:erl_snowflake, "~> 1.1"},
       {:ecto_sql, "~> 3.10"},
-      {:ecto_sqlite3, "~> 0.10.0"}
+      {:ecto_sqlite3, "~> 0.10.0"},
+      {:jason, "~> 1.4"}
     ]
   end
 end
